@@ -33,14 +33,17 @@ struct door_desc {
   unsigned long int action_started_on;
 };
 
-struct state {
-  struct door_desc right;
-  struct door_desc left;
-};
-
-struct state doors = {
-  {PIN_RIGHT_DOOR,  PIN_RIGHT_DOOR_CONTACT, false, DOOR_STATE_CLOSED, NONE, 0ul},
-  {PIN_LEFT_DOOR,   PIN_LEFT_DOOR_CONTACT,  false, DOOR_STATE_CLOSED, NONE, 0ul},
+struct door_desc doors[] = {
+  {
+    PIN_RIGHT_DOOR,  PIN_RIGHT_DOOR_CONTACT, false,
+    DOOR_STATE_CLOSED, DOOR_STATE_CLOSED, false, 0ul,
+    NONE, 0ul,
+  },
+  {
+    PIN_LEFT_DOOR, PIN_LEFT_DOOR_CONTACT, false,
+    DOOR_STATE_CLOSED, DOOR_STATE_CLOSED, false, 0ul,
+    NONE, 0ul,
+  },
 };
 
 /*
@@ -173,8 +176,9 @@ void setup() {
   /*
    * Initialize and retrieve the initial state of the doors
    */
-  doorSetup(&doors.right);
-  doorSetup(&doors.left);
+  for (int i=0; i < sizeof(doors)/sizeof(*doors) ; ++i) {
+    doorSetup(&doors[i]);
+  }
 }
 
 /*
@@ -185,9 +189,9 @@ void setup() {
  * of the Arduino board.
  */
 void loop() {
-  doorRefreshState(&doors.right);
-  doorEndActionate(&doors.right);
-  doorRefreshState(&doors.left);
-  doorEndActionate(&doors.left);
+  for (int i=0; i < sizeof(doors)/sizeof(*doors) ; ++i) {
+    doorRefreshState(&doors[i]);
+    doorEndActionate(&doors[i]);
+  }
 }
 
