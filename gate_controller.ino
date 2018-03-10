@@ -1,3 +1,5 @@
+#include "gate_protocol.h"
+
 #define SERIAL_BPS_RATE         9600
 #define UNSIGNED_LONG_INT_MAX   (2^32 - 1)
 
@@ -27,10 +29,13 @@ struct door_desc {
   const int         contact_pin;
   bool              initialized;
   enum door_state   state;
+  enum door_state   new_state;
   bool              state_changing;
   unsigned long int state_changed_on;
   enum door_action  action;
   unsigned long int action_started_on;
+  int               sensor_bit;
+  int               actuator_bit;
 };
 
 struct door_desc doors[] = {
@@ -38,11 +43,13 @@ struct door_desc doors[] = {
     PIN_RIGHT_DOOR,  PIN_RIGHT_DOOR_CONTACT, false,
     DOOR_STATE_CLOSED, DOOR_STATE_CLOSED, false, 0ul,
     NONE, 0ul,
+    GWP_GATE_LEFT_SENSOR, GWP_GATE_LEFT_ACTUATOR
   },
   {
     PIN_LEFT_DOOR, PIN_LEFT_DOOR_CONTACT, false,
     DOOR_STATE_CLOSED, DOOR_STATE_CLOSED, false, 0ul,
     NONE, 0ul,
+    GWP_GATE_RIGHT_SENSOR, GWP_GATE_RIGHT_ACTUATOR
   },
 };
 
@@ -66,7 +73,48 @@ unsigned long int durationSince(unsigned long int origin_ms) {
 }
 
 /*
- * Simulate a button pushed for PUSH_TIME_MS milliseconds, 
+ * Utility function to map an enum door_state
+ * to a bit value in the Serial protocol
+ */
+int sensor_to_bit(enum door_state state) {
+  const int bits[] = {
+    [DOOR_STATE_OPEN]   = 1,
+    [DOOR_STATE_CLOSED] = 0,
+  };
+  return bits[state];
+}
+
+/*
+ * Utility function to map an enum door_action
+ * to a bit value in the Serial protocol
+ */
+int actuator_to_bit(enum door_action action) {
+  const int bits[] = {
+    [NONE] = 0,
+    [TRIGGER] = 1,
+  };
+  return bits[action];
+}
+
+/*
+ * Iterate on the doors, and set the bits requested by the request
+ * input byte into a byte originally set to 0.
+ * The byte computed this way is then sent over the Serial
+ * communication channel.
+ */
+void notify_state(uint8_t request) {
+  uint8_t data = 0;
+  for (int i=0; i < sizeof(doors)/sizeof(*doors) ; i++) {
+    if (bitRead(request, doors[i].sensor_bit))
+      data = SET_BIT(data, doors[i].sensor_bit, sensor_to_bit(doors[i].state));
+    if (bitRead(request, doors[i].actuator_bit))
+      data = SET_BIT(data, doors[i].actuator_bit, actuator_to_bit(doors[i].action));
+  }
+  Serial.write(data);
+}
+
+/*
+ * Simulate a button pushed for PUSH_TIME_MS milliseconds,
  * that sends power through the Door's motors.
  */
 void doorStartActionate(struct door_desc *door) {
@@ -84,6 +132,11 @@ bool doorEndActionate(struct door_desc *door) {
       && durationSince(door->action_started_on) >= GATE_ACTIONATE_TIME_MS) {
     digitalWrite(door->pin, HIGH);
     door->action = NONE;
+    /*
+     * Stopped the activation of the actuator
+     * -> Notify state change to R-Pi
+     */
+    notify_state(0xF);
   }
 }
 
@@ -116,7 +169,7 @@ void doorRefreshState(struct door_desc *door) {
   if (door->initialized && new_state != door->state) {
     door->state_changing = true;
     door->state_changed_on = millis();
-    door->state = new_state;
+    door->new_state = new_state;
   }
 
   /*
@@ -145,6 +198,12 @@ void doorRefreshState(struct door_desc *door) {
      */
     if (durationSince(door->state_changed_on) > GATE_STATE_MIN_DURATION_MS) {
       door->state_changing = false;
+      door->state = door->new_state;
+
+      /*
+       * Send state change notification to R-Pi
+       */
+      notify_state(0xF);
     }
   }
 }
@@ -201,3 +260,19 @@ void loop() {
   }
 }
 
+/*
+ * Listen for the serial Events, as requests shall come through this channel.
+ */
+void serialEvent() {
+  while (Serial.available()) {
+    uint8_t request = (uint8_t)Serial.read();
+    // First, activate any requested actuator supported
+    for (int i=0; i < sizeof(doors)/sizeof(*doors) ; ++i) {
+      if (GET_BIT(request, doors[i].actuator_bit)) {
+        doorStartActionate(&doors[i]);
+      }
+    }
+    // Finally, notify of the current state
+    notify_state(0xF);
+  }
+}

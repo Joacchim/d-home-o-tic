@@ -77,3 +77,80 @@ Pin` on the arduino board. This pin can be used as an output, with a default
 state of `HIGH`. Setting it to `LOW` will have for effect to activate the
 two-channel relay, allowing current to bypass the motorization's command module
 and activate the motors.
+
+### Serial communication protocol
+
+In order for the Arduino board to be integrated in a more complete Home
+Automation system, it is necessary for it to communicate with a central brain.
+In my case, this brain is a Raspberry-Pi 3.
+
+Multiple methods are available to make an Arduino board communicate with a
+R-Pi, including Radio/WiFi/Ethernet Arduino Shields and so on...
+
+In my case, I chose to go simple, and have a simple communication with the R-Pi
+through a serial channel.
+
+#### Hardware Setup and Logic
+
+On the Arduino board, the setup for serial is quite straight-forward: the
+`Digital Pins` 0 and 1 are dedicated to Serial communication when directly
+connected.
+
+Beware, though, the power emitted by the Arduino board is 5v strong, while the
+R-Pi only support 3.5V strong currents. Without a proper electrical level
+converter between the two, there is a risk of frying the R-Pi, according to
+reports regularly found on the web.
+
+To solve this, I'm using a level-converter with a bi-directional bus for 5V to
+3V. Please refer to tutorials on how to Hookup and Use a bi-directional Level
+Converter.
+
+#### Protocol definition
+
+The protocol definitions can be found in the file gate\_protocol.h. The main
+take-away of that file is that the protocol is made up of 1-byte messages,
+where each bit represents one sensor/actuator state controlled by the Arduino
+board.
+
+##### Requests to the Arduino board
+
+A status request can be made by sending a 0-value byte to the Arduino board, to
+which it will answer with the complete set of states available (all sensors and
+actuators).
+
+In order to request the activation of an actuator, it is required to set the
+bit associated to this actuator to 1, and the Arduino will execute the command.
+
+##### Responses to requests
+
+The Arduino will answer any request with the set of current states, setting the
+bits of the sensors and actuator if they're in a non-normal state (For gate
+sensors, Open is a non-normal state, and for the actuator, activated is a
+non-normal state).
+
+##### Summary
+
+As for the information flow:
+ - Arduino may notify the R-Pi arbitrarily of a state change through a byte
+   with all bits set according to the sensors and actuators states (equivalent
+   to a "Response" byte answering a "Request" byte which has all bits set)
+ - R-pi may request a set of bits from the Arduino through a "Request" byte
+ - Arduino may answer to R-pi through a "Response" byte.
+
+Also, here is the definition of the various bit's meaning:
+ - 1 << 0: Gate's left door sensor.
+   0 means "Closed", 1 means "Opened"
+ - 1 << 1: Gate's left door actuator.
+   0 means "Not activating", 1 means "Activating"
+ - 1 << 2: Gate's right door sensor.
+   0 means "Closed", 1 means "Opened"
+ - 1 << 3: Gate's right door actuator.
+   0 means "Not activating", 1 means "Activating"
+ - 1 << 4: Garage door sensor.
+   0 means "Closed", 1 means "Opened"
+ - 1 << 5: Garage door actuator.
+   0 means "Not activating", 1 means "Activating"
+ - 1 << 6: Guest door sensor.
+   0 means "Closed", 1 means "Opened"
+ - 1 << 7: Guest door actuator.
+   0 means "Not activating", 1 means "Activating"
