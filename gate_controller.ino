@@ -91,7 +91,13 @@ bool doorEndActionate(struct door_desc *door) {
  * Convert the boolean returned by digitalRead into the door_state enum
  */
 enum door_state toDoorState(bool value) {
-  return value == DOOR_STATE_OPEN ? DOOR_STATE_OPEN : DOOR_STATE_CLOSED;
+  const enum door_state states[] = {
+    // Current pulled to ground -> circuit is "closed", so is the door
+    [LOW] = DOOR_STATE_CLOSED,
+    // Current not pulled to ground -> circuit is "open"; so is the door
+    [HIGH] = DOOR_STATE_OPEN,
+  };
+  return states[value];
 }
 
 /*
