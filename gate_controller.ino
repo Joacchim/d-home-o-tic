@@ -47,11 +47,11 @@ struct door_desc doors[] = {
 };
 
 /*
- * This function computes a duration, while trying to take into account the fact 
- * that the millis() function provides the number of ms since the start of program 
+ * This function computes a duration, while trying to take into account the fact
+ * that the millis() function provides the number of ms since the start of program
  * into 32bits, and will thus overflow (wrap around through 0) about every 50 days.
- * 
- * As such, thus function cannot be used to compute a duration longer than ~40 days 
+ *
+ * As such, thus function cannot be used to compute a duration longer than ~40 days
  * (safety margin), and should be used accordingly.
  */
 unsigned long int durationSince(unsigned long int origin_ms) {
@@ -95,8 +95,8 @@ enum door_state toDoorState(bool value) {
 }
 
 /*
- * Get the door's state, update it, and send a message on 
- * the communication channel if the state changed since the 
+ * Get the door's state, update it, and send a message on
+ * the communication channel if the state changed since the
  * last call of this function
  */
 void doorRefreshState(struct door_desc *door) {
@@ -116,24 +116,24 @@ void doorRefreshState(struct door_desc *door) {
   /*
    * Handle the state-change watching mechanism.
    * This requires two actions:
-   * 1. Maintain the measurement of how long the state was stable. This relies on 
+   * 1. Maintain the measurement of how long the state was stable. This relies on
    *    the durationSince function.
-   * 2. Stop the state-change watching mechanism and Send a notification to R-Pi 
+   * 2. Stop the state-change watching mechanism and Send a notification to R-Pi
    *    if the state has been stable for long enough
-   *    
-   *    
+   *
+   *
    * The state-change watching mechanism is necessary for the following reason:
-   *   When opening slowly, the Reed Switches tend to become flaky around the 
-   *   magnetic field's limit of effectiveness. Due to this, they quickly alternate 
-   *   between open and closed, making us uncertain of the actual state. As such, 
+   *   When opening slowly, the Reed Switches tend to become flaky around the
+   *   magnetic field's limit of effectiveness. Due to this, they quickly alternate
+   *   between open and closed, making us uncertain of the actual state. As such,
    *   let's ensure that any one state must remain for more than a hard-coded length
-   *   of time before being taken into account for our door logic.   
+   *   of time before being taken into account for our door logic.
    */
   if (door->state_changing) {
     /*
      * Send a notification to R-pi only when the door changed state for long enough
      * for the information to be trustworthy.
-     * 
+     *
      * This accounts for the state to have changed more than
      * GATE_STATE_MIN_DURATION_MS milliseconds.
      */
@@ -163,8 +163,8 @@ void doorSetup(struct door_desc *door) {
 /*
  * Initialize the state of all doors,
  * and setup the communication channel.
- * 
- * This function is only called once at the startup 
+ *
+ * This function is only called once at the startup
  * of the Arduino board
  */
 void setup() {
@@ -182,10 +182,10 @@ void setup() {
 }
 
 /*
- * Refresh the door's states, and push state changes 
+ * Refresh the door's states, and push state changes
  * to the controller RPi.
- * 
- * This function is repeatedly excecuted by the core 
+ *
+ * This function is repeatedly excecuted by the core
  * of the Arduino board.
  */
 void loop() {
